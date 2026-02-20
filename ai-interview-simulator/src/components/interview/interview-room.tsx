@@ -35,6 +35,10 @@ export function InterviewRoom() {
         </div>
       )
     }
+    if (status === "completed") {
+      navigate("/results")
+      return null
+    }
     navigate("/setup")
     return null
   }
