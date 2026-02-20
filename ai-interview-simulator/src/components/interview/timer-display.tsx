@@ -12,6 +12,11 @@ interface TimerDisplayProps {
 export function TimerDisplay({ timeLimit, isRunning, onTimeUp }: TimerDisplayProps) {
   const [elapsed, setElapsed] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const onTimeUpRef = useRef(onTimeUp)
+
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp
+  }, [onTimeUp])
 
   useEffect(() => {
     if (isRunning) {
@@ -19,7 +24,7 @@ export function TimerDisplay({ timeLimit, isRunning, onTimeUp }: TimerDisplayPro
       intervalRef.current = setInterval(() => {
         setElapsed((prev) => {
           if (prev >= timeLimit - 1) {
-            onTimeUp()
+            onTimeUpRef.current()
             return timeLimit
           }
           return prev + 1
@@ -31,7 +36,7 @@ export function TimerDisplay({ timeLimit, isRunning, onTimeUp }: TimerDisplayPro
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [isRunning, timeLimit, onTimeUp])
+  }, [isRunning, timeLimit])
 
   const remaining = timeLimit - elapsed
   const progress = elapsed / timeLimit
