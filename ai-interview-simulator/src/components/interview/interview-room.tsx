@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useNavigate } from "react-router-dom"
 import { useInterviewStore } from "@/store/interview-store"
@@ -8,17 +8,20 @@ import { RecordingControls } from "./recording-controls"
 import { TranscriptPanel } from "./transcript-panel"
 import { TimerDisplay } from "./timer-display"
 import { ConfidenceMeter } from "./confidence-meter"
-import { generateMockTranscript } from "@/services/whisper-service"
+import { transcribeAudio, generateMockTranscript } from "@/services/whisper-service"
 import type { InterviewAnswer } from "@/types/interview"
 import { Loader2 } from "lucide-react"
 
 export function InterviewRoom() {
   const navigate = useNavigate()
-  const { session, submitAnswer, nextQuestion, completeInterview, status } = useInterviewStore()
+  const { session, submitAnswer, nextQuestion, completeInterview, status, apiKey } = useInterviewStore()
   const [isRecording, setIsRecording] = useState(false)
   const [transcript, setTranscript] = useState("")
   const [currentConfidence, setCurrentConfidence] = useState(65)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   if (!session || status !== "in-progress") {
     if (status === "processing") {
@@ -39,25 +42,69 @@ export function InterviewRoom() {
   const currentQuestion = session.questions[session.currentQuestionIndex]
   const isLastQuestion = session.currentQuestionIndex === session.questions.length - 1
 
-  const handleStartRecording = useCallback(() => {
+  const handleStartRecording = useCallback(async () => {
     setIsRecording(true)
     setTranscript("")
-    // Simulate real-time confidence fluctuation
-    const interval = setInterval(() => {
-      setCurrentConfidence((prev) => {
-        const delta = (Math.random() - 0.5) * 10
-        return Math.min(100, Math.max(20, prev + delta))
-      })
-    }, 1000)
-    return () => clearInterval(interval)
+    chunksRef.current = []
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data)
+        }
+      }
+      
+      mediaRecorder.start(1000)
+      
+      const interval = setInterval(() => {
+        setCurrentConfidence((prev) => {
+          const delta = (Math.random() - 0.5) * 10
+          return Math.min(100, Math.max(20, prev + delta))
+        })
+      }, 1000)
+      
+      return () => {
+        clearInterval(interval)
+        stream.getTracks().forEach(track => track.stop())
+      }
+    } catch (error) {
+      console.warn("Microphone access denied, using mock mode:", error)
+      const interval = setInterval(() => {
+        setCurrentConfidence((prev) => {
+          const delta = (Math.random() - 0.5) * 10
+          return Math.min(100, Math.max(20, prev + delta))
+        })
+      }, 1000)
+      return () => clearInterval(interval)
+    }
   }, [])
 
   const handleStopRecording = useCallback(async () => {
     setIsRecording(false)
     setIsProcessing(true)
+    
+    let audioBlobToUse: Blob | null = null
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop())
+      
+      if (chunksRef.current.length > 0) {
+        audioBlobToUse = new Blob(chunksRef.current, { type: 'audio/webm' })
+        setAudioBlob(audioBlobToUse)
+      }
+    }
 
-    // Get transcript (mock or real)
-    const text = await generateMockTranscript()
+    let text: string
+    if (audioBlobToUse && apiKey) {
+      text = await transcribeAudio(audioBlobToUse, apiKey)
+    } else {
+      text = await generateMockTranscript()
+    }
     setTranscript(text)
 
     const answer: InterviewAnswer = {
@@ -71,7 +118,7 @@ export function InterviewRoom() {
 
     submitAnswer(answer)
     setIsProcessing(false)
-  }, [currentQuestion, currentConfidence, submitAnswer])
+  }, [currentQuestion, currentConfidence, submitAnswer, apiKey])
 
   const handleNext = useCallback(async () => {
     if (isLastQuestion) {

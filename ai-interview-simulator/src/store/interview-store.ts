@@ -3,7 +3,7 @@ import type { InterviewConfig, InterviewSession, InterviewAnswer, InterviewStatu
 import type { AnswerScore, InterviewReport, HiringRecommendation } from "@/types/scoring"
 import type { ConfidenceMetrics } from "@/types/analysis"
 import { generateQuestions } from "@/data/question-bank"
-import { generateMockScoreAsync } from "@/services/ai-scoring-service"
+import { scoreAnswer, generateMockScoreAsync } from "@/services/ai-scoring-service"
 import { generateMockConfidence } from "@/services/confidence-analyzer"
 import { detectBiasPatterns } from "@/services/bias-reduction"
 import { getRecommendationLevel } from "@/lib/utils"
@@ -39,11 +39,15 @@ const defaultConfig: InterviewConfig = {
   totalQuestions: 5,
 }
 
+const getInitialApiKey = (): string => {
+  return import.meta.env.VITE_OPENAI_API_KEY || ""
+}
+
 export const useInterviewStore = create<InterviewStore>((set, get) => ({
   session: null,
   config: defaultConfig,
   status: "idle",
-  apiKey: "",
+  apiKey: getInitialApiKey(),
   scores: [],
   confidenceMetrics: [],
   report: null,
@@ -101,16 +105,28 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
   },
 
   completeInterview: async () => {
-    const { session } = get()
+    const { session, apiKey } = get()
     if (!session) return
 
     set({ status: "processing" })
 
-    // Score each answer
     const scores: AnswerScore[] = []
-    for (const question of session.questions) {
-      const score = await generateMockScoreAsync(question.id)
-      scores.push(score)
+    for (let i = 0; i < session.questions.length; i++) {
+      const question = session.questions[i]
+      const answer = session.answers[i]
+      
+      if (apiKey && answer?.transcript) {
+        const score = await scoreAnswer({
+          question,
+          answer: answer.transcript,
+          role: session.config.role,
+          apiKey,
+        })
+        scores.push(score)
+      } else {
+        const score = await generateMockScoreAsync(question.id)
+        scores.push(score)
+      }
     }
 
     set({
@@ -118,7 +134,6 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
       session: { ...session, status: "completed", completedAt: Date.now() },
     })
 
-    // Generate report
     get().generateReport()
     set({ status: "completed" })
   },
