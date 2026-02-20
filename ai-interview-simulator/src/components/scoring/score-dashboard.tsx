@@ -161,35 +161,34 @@ export function ScoreDashboard() {
 function generateDemoReport() {
   return {
     sessionId: "demo-session",
-    overallScore: 3.6,
+    overallScore: 4.2,
     recommendation: "hire" as const,
     answerScores: [],
     strengths: [
-      "Strong communication skills (avg: 4.0/5)",
-      "Strong problem-solving skills (avg: 3.8/5)",
+      "Strong communication skills (avg: 4.5/5)",
+      "Strong problem-solving skills (avg: 4.2/5)",
+      "Excellent technical correctness (avg: 4.0/5)",
     ],
-    weaknesses: [
-      "Needs improvement in depth (avg: 2.4/5)",
-    ],
+    weaknesses: [],
     riskFactors: [],
     improvementAreas: [
-      "Explore edge cases and discuss how the solution scales.",
-      "Present multiple approaches before choosing one.",
+      "Continue deepening knowledge of edge cases and advanced concepts.",
+      "Add more discussion of performance implications.",
     ],
     fillerWordSummary: {
-      totalFillerWords: 14,
-      fillerWordRate: 4.7,
+      totalFillerWords: 8,
+      fillerWordRate: 2.7,
       mostCommon: [
-        { word: "um", count: 5 },
-        { word: "like", count: 4 },
-        { word: "basically", count: 3 },
-        { word: "you know", count: 2 },
+        { word: "um", count: 3 },
+        { word: "like", count: 2 },
+        { word: "basically", count: 2 },
+        { word: "you know", count: 1 },
       ],
     },
     confidenceSummary: {
-      averageConfidence: 72,
+      averageConfidence: 82,
       trend: "improving" as const,
-      lowestPoint: { questionIndex: 1, score: 58 },
+      lowestPoint: { questionIndex: 1, score: 72 },
     },
   }
 }

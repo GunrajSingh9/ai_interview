@@ -110,13 +110,13 @@ export function generateMockScore(questionId: string): AnswerScore {
   ]
 
   const mockDimensions: DimensionScore[] = dimensions.map((dim) => {
-    const score = Math.floor(Math.random() * 3) + 2 // 2-4 range
+    const score = generateRealisticScore(dim)
     return {
       dimension: dim,
       score,
       explanation: getMockExplanation(dim, score),
-      evidence: [getMockEvidence(dim)],
-      suggestions: [getMockSuggestion(dim)],
+      evidence: [getMockEvidence(dim, score)],
+      suggestions: [getMockSuggestion(dim, score)],
     }
   })
 
@@ -125,8 +125,27 @@ export function generateMockScore(questionId: string): AnswerScore {
     dimensions: mockDimensions,
     overallScore: calculateWeightedScore(mockDimensions),
     biasFlags: [],
-    confidence: 70 + Math.floor(Math.random() * 25),
+    confidence: 75 + Math.floor(Math.random() * 20),
   }
+}
+
+function generateRealisticScore(dimension: ScoreDimension): number {
+  const weights = {
+    correctness: [0.05, 0.15, 0.30, 0.35, 0.15],
+    depth: [0.05, 0.20, 0.30, 0.30, 0.15],
+    communication: [0.05, 0.10, 0.25, 0.40, 0.20],
+    "problem-solving": [0.05, 0.15, 0.30, 0.35, 0.15],
+    relevance: [0.05, 0.10, 0.25, 0.40, 0.20],
+  }
+  
+  const dist = weights[dimension] || weights.correctness
+  const rand = Math.random()
+  let cumulative = 0
+  for (let i = 0; i < dist.length; i++) {
+    cumulative += dist[i]
+    if (rand < cumulative) return i + 1
+  }
+  return 4
 }
 
 export async function generateMockScoreAsync(questionId: string): Promise<AnswerScore> {
@@ -140,49 +159,104 @@ function getMockExplanation(dim: ScoreDimension, score: number): string {
       2: "Some technical inaccuracies detected in the core concepts discussed.",
       3: "Generally accurate response with minor gaps in understanding.",
       4: "Demonstrates solid technical knowledge with accurate explanations.",
+      5: "Exceptional technical accuracy with precise terminology and comprehensive understanding of all concepts.",
     },
     depth: {
       2: "Response stays at surface level without exploring nuances.",
       3: "Good coverage of main points with some deeper insights.",
       4: "Thorough exploration showing strong depth of knowledge.",
+      5: "Demonstrates expert-level depth with advanced concepts, edge cases, and nuanced analysis.",
     },
     communication: {
       2: "Answer lacks clear structure and jumps between topics.",
       3: "Well-organized response with logical flow.",
       4: "Excellent clarity with well-structured examples and transitions.",
+      5: "Outstanding communication with perfect structure, compelling examples, and engaging delivery.",
     },
     "problem-solving": {
       2: "Shows basic reasoning but misses alternative approaches.",
       3: "Structured approach with consideration of trade-offs.",
       4: "Strong analytical thinking with creative problem decomposition.",
+      5: "Demonstrates exceptional problem-solving with innovative approaches and comprehensive trade-off analysis.",
     },
     relevance: {
       2: "Partially addresses the question with some tangents.",
       3: "Directly addresses the core question with minor digressions.",
       4: "Precisely targeted response covering all aspects asked.",
+      5: "Perfectly addresses all aspects of the question with insightful connections to broader contexts.",
     },
   }
   return explanations[dim]?.[score] || "Score based on overall quality assessment."
 }
 
-function getMockEvidence(dim: ScoreDimension): string {
-  const evidence: Record<ScoreDimension, string> = {
-    correctness: "Candidate demonstrated understanding of core concepts in their explanation.",
-    depth: "Response included discussion of edge cases and trade-offs.",
-    communication: "Answer followed a clear structure with examples.",
-    "problem-solving": "Candidate broke down the problem into manageable components.",
-    relevance: "Response directly addressed the key aspects of the question.",
+function getMockEvidence(dim: ScoreDimension, score: number): string {
+  const evidence: Record<ScoreDimension, Record<number, string>> = {
+    correctness: {
+      2: "Some technical details were imprecise in the explanation.",
+      3: "Candidate demonstrated understanding of core concepts in their explanation.",
+      4: "Accurate use of technical terminology and correct explanation of complex concepts.",
+      5: "Demonstrated expert-level knowledge with precise technical details and accurate explanations of advanced concepts.",
+    },
+    depth: {
+      2: "Basic coverage without exploring underlying principles.",
+      3: "Response included discussion of edge cases and trade-offs.",
+      4: "Explored multiple layers of the problem with consideration of scalability and performance.",
+      5: "Provided comprehensive analysis including edge cases, performance implications, and real-world applications.",
+    },
+    communication: {
+      2: "Ideas were present but could be organized more clearly.",
+      3: "Answer followed a clear structure with examples.",
+      4: "Used clear transitions, structured examples, and maintained audience engagement.",
+      5: "Exceptional use of analogies, clear explanations, and perfect pacing throughout the response.",
+    },
+    "problem-solving": {
+      2: "Identified the problem but solution approach was limited.",
+      3: "Candidate broke down the problem into manageable components.",
+      4: "Presented multiple approaches with clear reasoning for the chosen solution.",
+      5: "Demonstrated exceptional analytical skills with innovative solutions and comprehensive risk assessment.",
+    },
+    relevance: {
+      2: "Some aspects of the question were not fully addressed.",
+      3: "Response directly addressed the key aspects of the question.",
+      4: "All parts of the question were answered with appropriate detail.",
+      5: "Comprehensively addressed all aspects while adding valuable context and forward-looking insights.",
+    },
   }
-  return evidence[dim]
+  return evidence[dim]?.[score] || "Evidence based on response analysis."
 }
 
-function getMockSuggestion(dim: ScoreDimension): string {
-  const suggestions: Record<ScoreDimension, string> = {
-    correctness: "Consider referencing specific implementation details to strengthen accuracy.",
-    depth: "Explore edge cases and discuss how the solution scales.",
-    communication: "Use the STAR framework for behavioral questions to add structure.",
-    "problem-solving": "Present multiple approaches before choosing one and explain trade-offs.",
-    relevance: "Start by restating the question to ensure alignment before diving in.",
+function getMockSuggestion(dim: ScoreDimension, score: number): string {
+  const suggestions: Record<ScoreDimension, Record<number, string>> = {
+    correctness: {
+      2: "Review core technical concepts and practice explaining them with precise terminology.",
+      3: "Consider referencing specific implementation details to strengthen accuracy.",
+      4: "Continue deepening knowledge of edge cases and advanced concepts.",
+      5: "Consider mentoring others to share your strong technical understanding.",
+    },
+    depth: {
+      2: "Practice diving deeper into the 'why' behind technical decisions.",
+      3: "Explore edge cases and discuss how the solution scales.",
+      4: "Add more discussion of performance implications and alternative approaches.",
+      5: "Great depth - consider documenting your thought process for knowledge sharing.",
+    },
+    communication: {
+      2: "Use the STAR framework to structure responses more clearly.",
+      3: "Use the STAR framework for behavioral questions to add structure.",
+      4: "Add more transitional phrases to connect complex ideas.",
+      5: "Excellent communication - your structure and clarity are exemplary.",
+    },
+    "problem-solving": {
+      2: "Practice breaking down problems into smaller components before solving.",
+      3: "Present multiple approaches before choosing one and explain trade-offs.",
+      4: "Add more discussion of potential risks and mitigation strategies.",
+      5: "Exceptional problem-solving - consider documenting approaches for team learning.",
+    },
+    relevance: {
+      2: "Start by restating the question to ensure alignment before diving in.",
+      3: "Start by restating the question to ensure alignment before diving in.",
+      4: "Consider proactively addressing related concerns the interviewer might have.",
+      5: "Perfect relevance - your responses are always on-point and comprehensive.",
+    },
   }
-  return suggestions[dim]
+  return suggestions[dim]?.[score] || "Continue practicing to improve."
 }
